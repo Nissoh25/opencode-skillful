@@ -1,0 +1,41 @@
+{
+  "name": "@zenobius/opencode-skillful",
+  "version": "0.1.0",
+  "description": "OpenCode Skills Plugin - Anthropic Agent Skills Specification implementation",
+  "type": "module",
+  "module": "src/index.ts",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zenobi-us/opencode-skillful"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "files": [
+    "dist",
+    "src/version.ts"
+  ],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "dependencies": {
+    "@opencode-ai/plugin": "1.0.85",
+    "env-paths": "^3.0.0",
+    "gray-matter": "^4.0.3",
+    "ramda": "^0.30.0",
+    "search-string": "^3.1.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/node": "^20.11.5",
+    "@typescript-eslint/eslint-plugin": "8.47.0",
+    "@typescript-eslint/parser": "8.47.0",
+    "bun-types": "latest",
+    "eslint": "^9.39.1",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-prettier": "^5.1.3",
+    "prettier": "^3.2.4",
+    "typescript-eslint": "^8.47.0",
+    "vitest": "^3.2.4"
+  }
+}
