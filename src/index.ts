@@ -24,22 +24,17 @@
  * @see https://github.com/anthropics/skills
  */
 
-import { promises as fsPromises } from "node:fs";
-import { lstat } from "node:fs/promises";
-import { join, dirname, basename, sep } from "path";
-import os from "os";
+import { promises as fsPromises } from 'node:fs';
+import { lstat } from 'node:fs/promises';
+import { join, dirname, basename, sep } from 'path';
+import os from 'os';
 
-import type {
-  Plugin,
-  PluginInput,
-  ToolContext,
-  ToolDefinition,
-} from "@opencode-ai/plugin";
-import { tool } from "@opencode-ai/plugin";
-import envPaths from "env-paths";
-import matter from "gray-matter";
-import { mergeDeepLeft } from "ramda";
-import SearchString from "search-string";
+import type { Plugin, PluginInput, ToolContext, ToolDefinition } from '@opencode-ai/plugin';
+import { tool } from '@opencode-ai/plugin';
+import envPaths from 'env-paths';
+import matter from 'gray-matter';
+import { mergeDeepLeft } from 'ramda';
+import SearchString from 'search-string';
 
 const SKILL_PATH_PATTERN = /skills\/.*\/SKILL.md$/;
 
@@ -122,8 +117,7 @@ class SkillSearcher {
   private parseQuery(queryString: string): ParsedSkillQuery {
     const searchStringInstance = SearchString.parse(queryString);
 
-    const textSegments =
-      searchStringInstance.getTextSegments() as TextSegment[];
+    const textSegments = searchStringInstance.getTextSegments() as TextSegment[];
     const include = textSegments
       .filter((s: TextSegment) => !s.negated)
       .map((s: TextSegment) => s.text.toLowerCase())
@@ -186,18 +180,15 @@ class SkillSearcher {
   /**
    * Generate user-friendly feedback about query interpretation
    */
-  private generateFeedback(
-    query: ParsedSkillQuery,
-    matchCount: number,
-  ): string {
+  private generateFeedback(query: ParsedSkillQuery, matchCount: number): string {
     const parts: string[] = [];
 
     if (query.include.length > 0) {
-      parts.push(`📝 Searching for: **${query.include.join(", ")}**`);
+      parts.push(`📝 Searching for: **${query.include.join(', ')}**`);
     }
 
     if (query.hasExclusions) {
-      parts.push(`🚫 Excluding: **${query.exclude.join(", ")}**`);
+      parts.push(`🚫 Excluding: **${query.exclude.join(', ')}**`);
     }
 
     if (matchCount === 0) {
@@ -208,7 +199,7 @@ class SkillSearcher {
       parts.push(`✅ Found ${matchCount} matches`);
     }
 
-    return parts.join(" | ");
+    return parts.join(' | ');
   }
 
   /**
@@ -233,9 +224,7 @@ class SkillSearcher {
 
     const totalMatches = results.length;
 
-    results = results.filter((skill) =>
-      this.shouldIncludeSkill(skill, query.exclude),
-    );
+    results = results.filter((skill) => this.shouldIncludeSkill(skill, query.exclude));
 
     const ranked: SkillRank[] = results
       .map((skill) => this.rankSkill(skill, query.include))
@@ -264,10 +253,10 @@ class SkillSearcher {
 type SkillRegistry = Map<string, Skill>;
 type SkillRegistryController = {
   registry: SkillRegistry;
-  has: (key: string) => boolean;
-  get: (key: string) => Skill | undefined;
-  add: (key: string, skill: Skill) => void;
-  search: (...args: string[]) => Skill[];
+  has: (_key: string) => boolean;
+  get: (_key: string) => Skill | undefined;
+  add: (_key: string, _skill: Skill) => void;
+  search: (..._args: string[]) => Skill[];
 };
 function createSkillRegistryController(): SkillRegistryController {
   const registry: SkillRegistry = new Map();
@@ -295,23 +284,21 @@ function createSkillRegistryController(): SkillRegistryController {
 type SkillRegistryManager = {
   byFQDN: SkillRegistryController;
   byName: SkillRegistryController;
-  search: (query: string) => Skill[];
+  search: (_query: string) => Skill[];
 };
 
 // Validation Schema
 const SkillFrontmatterSchema = tool.schema.object({
   name: tool.schema
     .string()
-    .regex(/^[a-z0-9-]+$/, "Name must be lowercase alphanumeric with hyphens")
-    .min(1, "Name cannot be empty"),
+    .regex(/^[a-z0-9-]+$/, 'Name must be lowercase alphanumeric with hyphens')
+    .min(1, 'Name cannot be empty'),
   description: tool.schema
     .string()
-    .min(20, "Description must be at least 20 characters for discoverability"),
+    .min(20, 'Description must be at least 20 characters for discoverability'),
   license: tool.schema.string().optional(),
-  "allowed-tools": tool.schema.array(tool.schema.string()).optional(),
-  metadata: tool.schema
-    .record(tool.schema.string(), tool.schema.string())
-    .optional(),
+  'allowed-tools': tool.schema.array(tool.schema.string()).optional(),
+  metadata: tool.schema.record(tool.schema.string(), tool.schema.string()).optional(),
 });
 
 /**
@@ -323,10 +310,10 @@ const SkillFrontmatterSchema = tool.schema.object({
  */
 function toolName(skillPath: string): string {
   return skillPath
-    .replace(/\/SKILL\.md$/, "") // Remove trailing /SKILL.md
+    .replace(/\/SKILL\.md$/, '') // Remove trailing /SKILL.md
     .split(sep)
-    .join("_")
-    .replace(/-/g, "_"); // Replace hyphens with underscores
+    .join('_')
+    .replace(/-/g, '_'); // Replace hyphens with underscores
 }
 
 async function findSkillPaths(basePaths: string | string[]) {
@@ -342,7 +329,7 @@ async function findSkillPaths(basePaths: string | string[]) {
       paths.push(basePath);
     }
 
-    const patterns = paths.map((basePath) => join(basePath, "**/SKILL.md"));
+    const patterns = paths.map((basePath) => join(basePath, '**/SKILL.md'));
     const matches = await fsPromises.glob(patterns);
     return matches;
   } catch {
@@ -358,9 +345,7 @@ async function parseSkill(skillPath: string): Promise<Skill | null> {
   try {
     const relativePath = skillPath.match(SKILL_PATH_PATTERN)?.[0];
     if (!relativePath) {
-      console.error(
-        `❌ Skill path does not match expected pattern: ${skillPath}`,
-      );
+      console.error(`❌ Skill path does not match expected pattern: ${skillPath}`);
       return null;
     }
 
@@ -387,7 +372,7 @@ async function parseSkill(skillPath: string): Promise<Skill | null> {
         `❌ Name mismatch in ${skillPath}:`,
         `\n   Frontmatter name: "${frontmatter.data.name}"`,
         `\n   Directory name: "${skillDir}"`,
-        `\n   Fix: Update the 'name' field in SKILL.md to match the directory name`,
+        `\n   Fix: Update the 'name' field in SKILL.md to match the directory name`
       );
       return null;
     }
@@ -395,7 +380,7 @@ async function parseSkill(skillPath: string): Promise<Skill | null> {
     // Generate tool name from path
 
     return {
-      allowedTools: frontmatter.data["allowed-tools"],
+      allowedTools: frontmatter.data['allowed-tools'],
       content: parsed.content.trim(),
       description: frontmatter.data.description,
       fullPath: dirname(skillPath),
@@ -408,7 +393,7 @@ async function parseSkill(skillPath: string): Promise<Skill | null> {
   } catch (error) {
     console.error(
       `❌ Error parsing skill ${skillPath}:`,
-      error instanceof Error ? error.message : String(error),
+      error instanceof Error ? error.message : String(error)
     );
     return null;
   }
@@ -421,7 +406,7 @@ function createInstructionInjector(ctx: PluginInput) {
       path: { id: props.sessionId },
       body: {
         noReply: true,
-        parts: [{ type: "text", text }],
+        parts: [{ type: 'text', text }],
       },
     });
   };
@@ -431,18 +416,14 @@ function createInstructionInjector(ctx: PluginInput) {
 /**
  * Load a single skill into the chat
  */
-async function loadSkill(
-  skill: Skill,
-  options: { ctx: PluginInput; sessionID: string },
-) {
+async function loadSkill(skill: Skill, options: { ctx: PluginInput; sessionID: string }) {
   const sendPrompt = createInstructionInjector(options.ctx);
   await sendPrompt(`The "${skill.name}" skill is loading\n${skill.name}`, {
     sessionId: options.sessionID,
   });
-  await sendPrompt(
-    `Base directory for this skill: ${skill.fullPath}\n\n${skill.content}`,
-    { sessionId: options.sessionID },
-  );
+  await sendPrompt(`Base directory for this skill: ${skill.fullPath}\n\n${skill.content}`, {
+    sessionId: options.sessionID,
+  });
 }
 
 /**
@@ -451,7 +432,7 @@ async function loadSkill(
 async function loadSkills(
   skillNames: string[],
   manager: SkillRegistryManager,
-  options: { ctx: PluginInput; sessionID: string },
+  options: { ctx: PluginInput; sessionID: string }
 ) {
   const loaded: string[] = [];
   const notFound: string[] = [];
@@ -481,17 +462,14 @@ async function loadSkills(
 /**
  * Tool to use (load) one or more skills
  */
-function createUseSkillsTool(
-  ctx: PluginInput,
-  registry: SkillRegistryManager,
-): ToolDefinition {
+function createUseSkillsTool(ctx: PluginInput, registry: SkillRegistryManager): ToolDefinition {
   return tool({
     description:
-      "Load one or more skills into the chat. Provide an array of skill names to load them as user messages.",
+      'Load one or more skills into the chat. Provide an array of skill names to load them as user messages.',
     args: {
       skill_names: tool.schema
         .array(tool.schema.string())
-        .min(1, "Must provide at least one skill name"),
+        .min(1, 'Must provide at least one skill name'),
     },
     execute: async (args, toolCtx: ToolContext) => {
       const response = await loadSkills(args.skill_names, registry, {
@@ -499,9 +477,9 @@ function createUseSkillsTool(
         sessionID: toolCtx.sessionID,
       });
 
-      let result = `Loaded ${response.loaded.length} skill(s): ${response.loaded.join(", ")}`;
+      let result = `Loaded ${response.loaded.length} skill(s): ${response.loaded.join(', ')}`;
       if (response.notFound.length > 0) {
-        result += `\n\nSkills not found: ${response.notFound.join(", ")}`;
+        result += `\n\nSkills not found: ${response.notFound.join(', ')}`;
       }
       return result;
     },
@@ -513,14 +491,14 @@ function createUseSkillsTool(
  * Converts slashes and hyphens to underscores for prefix matching
  */
 function normalizePathQuery(query: string): string {
-  return query.replace(/[/-]/g, "_").toLowerCase();
+  return query.replace(/[/-]/g, '_').toLowerCase();
 }
 
 /**
  * Strip the "skills_" prefix from toolName for user-facing matching
  */
 function stripSkillsPrefix(toolName: string): string {
-  return toolName.replace(/^skills_/, "");
+  return toolName.replace(/^skills_/, '');
 }
 
 /**
@@ -537,10 +515,7 @@ function stripSkillsPrefix(toolName: string): string {
  * - "experts/data-ai" → all skills under that subtree
  * - "*" or empty → list all skills
  */
-function createFindSkillsTool(
-  ctx: PluginInput,
-  registry: SkillRegistryManager,
-): ToolDefinition {
+function createFindSkillsTool(ctx: PluginInput, registry: SkillRegistryManager): ToolDefinition {
   return tool({
     description:
       "Search for skills using natural query syntax. Supports path prefixes (e.g., 'experts', 'superpowers/writing'), negation (-term), quoted phrases, and free text. Use '*' to list all skills.",
@@ -552,11 +527,11 @@ function createFindSkillsTool(
       const query = args.query.trim();
 
       // List all skills if query is empty or "*"
-      if (query === "" || query === "*") {
+      if (query === '' || query === '*') {
         const resultsList = allSkills
           .sort((a, b) => a.toolName.localeCompare(b.toolName))
           .map((m) => `- **${m.name}** \`${m.toolName}\`\n  ${m.description}`)
-          .join("\n");
+          .join('\n');
         return `Found ${allSkills.length} skill(s):\n\n${resultsList}`;
       }
 
@@ -571,7 +546,7 @@ function createFindSkillsTool(
         const resultsList = prefixMatches
           .sort((a, b) => a.toolName.localeCompare(b.toolName))
           .map((m) => `- **${m.name}** \`${m.toolName}\`\n  ${m.description}`)
-          .join("\n");
+          .join('\n');
         return `Found ${prefixMatches.length} skill(s) matching path "${query}":\n\n${resultsList}`;
       }
 
@@ -585,7 +560,7 @@ function createFindSkillsTool(
 
       const resultsList = result.matches
         .map((m) => `- **${m.name}** \`${m.toolName}\`\n  ${m.description}`)
-        .join("\n");
+        .join('\n');
 
       return `${result.feedback}\n\n${resultsList}`;
     },
@@ -597,7 +572,7 @@ function createFindSkillsTool(
  */
 function createToolResourceReader(
   ctx: PluginInput,
-  registry: SkillRegistryManager,
+  registry: SkillRegistryManager
 ): ToolDefinition {
   const sendPrompt = createInstructionInjector(ctx);
 
@@ -610,9 +585,7 @@ function createToolResourceReader(
     },
     execute: async (args, toolCtx: ToolContext) => {
       // Try to find skill by toolName first, then by name (backward compat)
-      let skill =
-        registry.byFQDN.get(args.skill_name) ||
-        registry.byName.get(args.skill_name);
+      let skill = registry.byFQDN.get(args.skill_name) || registry.byName.get(args.skill_name);
       if (!skill) {
         throw new Error(`Skill not found: ${args.skill_name}`);
       }
@@ -624,13 +597,13 @@ function createToolResourceReader(
         // Inject content silently
         await sendPrompt(
           `Resource loaded from skill "${skill.name}": ${args.relative_path}\n\n${content}`,
-          { sessionId: toolCtx.sessionID },
+          { sessionId: toolCtx.sessionID }
         );
 
         return `Resource "${args.relative_path}" from skill "${skill.name}" has been loaded successfully.`;
       } catch (error) {
         throw new Error(
-          `Failed to read resource at ${resourcePath}: ${error instanceof Error ? error.message : String(error)}`,
+          `Failed to read resource at ${resourcePath}: ${error instanceof Error ? error.message : String(error)}`
         );
       }
     },
@@ -642,7 +615,7 @@ function createToolResourceReader(
  */
 async function createSkillRegistry(
   ctx: PluginInput,
-  config: PluginConfig,
+  config: PluginConfig
 ): Promise<SkillRegistryManager> {
   /**
    * Skill Registry Map
@@ -677,9 +650,7 @@ async function createSkillRegistry(
   }
 
   if (dupes.length) {
-    console.warn(
-      `⚠️  Duplicate skills detected (skipped): ${dupes.join(", ")}`,
-    );
+    console.warn(`⚠️  Duplicate skills detected (skipped): ${dupes.join(', ')}`);
   }
 
   /**
@@ -707,7 +678,7 @@ async function createSkillRegistry(
   };
 }
 
-const OpenCodePaths = envPaths("opencode", { suffix: "" });
+const OpenCodePaths = envPaths('opencode', { suffix: '' });
 
 async function getPluginConfig(ctx: PluginInput): Promise<PluginConfig> {
   // const config = await ctx.client.config.get();
@@ -715,9 +686,9 @@ async function getPluginConfig(ctx: PluginInput): Promise<PluginConfig> {
   const base = {
     debug: false,
     basePaths: [
-      join(os.homedir(), ".opencode/skills"), // Lowest priority: Non standard user config
-      join(OpenCodePaths.config, "skills"), // Lowest priority: Standard User Config (windows)
-      join(ctx.directory, ".opencode/skills"), // Highest priority: Project-local
+      join(os.homedir(), '.opencode/skills'), // Lowest priority: Non standard user config
+      join(OpenCodePaths.config, 'skills'), // Lowest priority: Standard User Config (windows)
+      join(ctx.directory, '.opencode/skills'), // Highest priority: Project-local
     ],
   };
 

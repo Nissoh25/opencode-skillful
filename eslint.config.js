@@ -22,6 +22,8 @@ export default tseslint.config(
         console: 'readonly',
         process: 'readonly',
         Buffer: 'readonly',
+        // Bun globals
+        Bun: 'readonly',
       },
     },
     plugins: {
@@ -35,7 +37,15 @@ export default tseslint.config(
       'prettier/prettier': 'error',
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/no-explicit-any': 'warn',
-      'no-console': 'error',
+      'no-unused-vars': 'off', // Use TypeScript version instead
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+        },
+      ],
+      'no-console': 'warn', // Allow console for error logging in plugins
     },
   }
 );
