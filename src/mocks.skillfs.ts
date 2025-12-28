@@ -1,9 +1,8 @@
 import { mock } from 'bun:test';
 import { Volume } from 'memfs';
-import { createDiscoveredSkillPath, DiscoveredSkillPath } from './services/SkillFs';
 import path from 'node:path';
 
-mock.module('./services/SkillFs.ts', async () => {
+mock.module('./lib/SkillFs.ts', async () => {
   const memdisk = Volume.fromJSON(
     {
       './test-skill/SKILL.md': `---
@@ -37,21 +36,17 @@ This is a test skill.
      * @param basePath Base directory to search
      * @returns Array of discovered skill paths
      *
-     * @see {@link DiscoveredSkillPath}
      * @see {@link createDiscoveredSkillPath}
      * @see {@link SkillFs}
      */
     findSkillPaths: async (basePath: string) => {
       console.log(`[MOCK] skillfs.findSkillPaths`, basePath);
-      const results: DiscoveredSkillPath[] = [];
-      const globResult = await memdisk.promises.glob('**/SKILL.md', {
+      const results = await memdisk.promises.glob('**/SKILL.md', {
         cwd: basePath,
       });
-      for (const relativePath of globResult) {
-        results.push(createDiscoveredSkillPath(basePath, relativePath));
-      }
+
       console.log(`[MOCK] skillfs.findSkillPaths results:`, results);
-      return results;
+      return results.map((relativePath) => path.join(basePath, relativePath));
     },
     // Override other FS-dependent functions as needed
     /**
@@ -93,6 +88,43 @@ This is a test skill.
     readSkillResource: (path: string) => {
       console.log(`[MOCK] skillfs.readSkillResource`, path);
       return readFile(path);
+    },
+
+    /**
+     * Detect MIME type from file extension
+     * @param filePath Path to the file
+     * @returns MIME type string
+     */
+    detectMimeType: (filePath: string): string => {
+      const ext = filePath.toLowerCase().split('.').pop() || '';
+
+      const mimeTypes: Record<string, string> = {
+        sh: 'application/x-sh',
+        bash: 'application/x-sh',
+        zsh: 'application/x-sh',
+        py: 'text/x-python',
+        js: 'application/javascript',
+        ts: 'application/typescript',
+        node: 'application/javascript',
+        md: 'text/markdown',
+        txt: 'text/plain',
+        pdf: 'application/pdf',
+        svg: 'image/svg+xml',
+        png: 'image/png',
+        jpg: 'image/jpeg',
+        jpeg: 'image/jpeg',
+        gif: 'image/gif',
+        webp: 'image/webp',
+        json: 'application/json',
+        yaml: 'application/yaml',
+        yml: 'application/yaml',
+        xml: 'application/xml',
+        csv: 'text/csv',
+        html: 'text/html',
+        css: 'text/css',
+      };
+
+      return mimeTypes[ext] || 'application/octet-stream';
     },
   };
 });

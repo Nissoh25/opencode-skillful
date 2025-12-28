@@ -1,3 +1,36 @@
+/**
+ * SkillSearcher - Natural Language Query Parser and Skill Ranking Engine
+ *
+ * WHY: Users expect Gmail-style search syntax (quoted phrases, negation, multiple terms).
+ * This module abstracts the search-string library and implements skill-specific ranking.
+ *
+ * SEARCH STRATEGY:
+ * 1. Parse user query into include/exclude terms (using search-string for Gmail syntax)
+ * 2. Filter: ALL include terms must appear in skill (name, description, or toolName)
+ * 3. Exclude: Remove matches that contain any exclude term
+ * 4. Rank: Score by match location (name matches weighted 3×, description 1×)
+ * 5. Sort: By total score (desc) → name matches (desc) → alphabetically
+ *
+ * QUERY INTERPRETATION:
+ * - "git commit" → include: [git, commit]
+ * - "git -rebase" → include: [git], exclude: [rebase]
+ * - '"git rebase"' → include: [git rebase] (phrase, no split)
+ * - "*" or empty → list all skills
+ *
+ * RANKING ALGORITHM:
+ * - Name match: +3 per term found in skill name
+ * - Description match: +1 per term found in description
+ * - Exact name match: +10 bonus
+ * - Final sort: highest score first, tie-break by name matches, then alphabetical
+ *
+ * WHY SEARCH-STRING: Handles complex syntax edge cases (quotes, escaped chars)
+ * without rolling our own parser. Proven in production systems (Gmail, etc).
+ *
+ * WHY NO PARTIAL MATCHING: "python" won't match "python-docstring" because we check
+ * term-by-term inclusion, not word-level matching. This matches user expectations
+ * (they searched for "python", not "python-" or "pythonish").
+ */
+
 import SearchString from 'search-string';
 import type {
   Skill,
@@ -43,6 +76,23 @@ export function parseQuery(queryString: string | string[]): ParsedSkillQuery {
 
 /**
  * Calculate ranking score for a skill against query terms
+ *
+ * SCORING FORMULA:
+ * - nameMatches: number of include terms found in skill name (0 or more)
+ * - descMatches: number of include terms found in description (0 or more)
+ * - totalScore = (nameMatches × 3) + (descMatches × 1) + exactBonus
+ * - exactBonus: +10 if query is single term and equals skill name exactly
+ *
+ * WHY THIS WEIGHTING:
+ * - Skill name is a strong signal (3× weight) because it's the identifier
+ * - Description matches are weaker (1× weight) because skill names vary
+ * - Exact match bonus breaks ties and promotes direct matches to top
+ *
+ * EXAMPLE:
+ * - Query: "git" | Skill name: "writing-git-commits" | Score: 3 (name match)
+ * - Query: "git" | Skill name: "git" | Score: 13 (name match + exact bonus)
+ * - Query: "revert changes" | Skill name: "git-revert" | Description: "Revert..."
+ *   | Score: 4 (1 name match + 1 desc match + 2 bonus doesn't apply)
  */
 export function rankSkill(skill: Skill, includeTerms: string[]): SkillRank {
   const skillName = skill.name.toLowerCase();
@@ -88,19 +138,23 @@ export function generateFeedback(query: ParsedSkillQuery, matchCount: number): s
   const parts: string[] = [];
 
   if (query.include.length > 0) {
-    parts.push(`📝 Searching for: "${query.include.join(', ')}**`);
+    parts.push(`Searching for: "**${query.originalQuery.join(' ')}**"`);
+  } else {
+    parts.push(`No include search terms provided`);
   }
 
   if (query.hasExclusions) {
-    parts.push(`🚫 Excluding: **${query.exclude.join(', ')}**`);
+    parts.push(`Excluding: **${query.exclude.join(', ')}**`);
   }
 
   if (matchCount === 0) {
-    parts.push(`❌ No matches found`);
+    parts.push(`No matches found`);
+    parts.push(`- Try different or fewer search terms.`);
+    parts.push(`- Use skill_find("*") to list all skills.`);
   } else if (matchCount === 1) {
-    parts.push(`✅ Found 1 match`);
+    parts.push(`Found 1 match`);
   } else {
-    parts.push(`✅ Found ${matchCount} matches`);
+    parts.push(`Found ${matchCount} matches`);
   }
 
   return parts.join(' | ');
@@ -130,15 +184,15 @@ export function createSkillSearcher(registry: SkillRegistryController): SkillSea
     };
 
     // List all skills if query is empty or "*"
-    if (queryString === '' || queryString === '*') {
+    if (
+      queryString === '' ||
+      queryString === '*' ||
+      (query.include.length === 1 && query.include[0] === '*') ||
+      (query.include.length === 0 && query.hasExclusions === false)
+    ) {
       output.matches = skills;
       output.totalMatches = skills.length;
-      output.feedback = `✅ Listing all ${skills.length} skills`;
-      return output;
-    }
-
-    if (query.include.length === 0) {
-      output.feedback = `❌ No valid search terms provided in query "${queryString}"`;
+      output.feedback = `Listing all ${skills.length} skills`;
       return output;
     }
 
@@ -149,7 +203,7 @@ export function createSkillSearcher(registry: SkillRegistryController): SkillSea
 
     output.matches = results;
     output.totalMatches = results.length;
-    output.feedback = `✅ Found ${results.length} matches for query "${queryString}"`;
+    output.feedback = generateFeedback(query, results.length);
 
     return output;
   }
@@ -159,8 +213,6 @@ export function createSkillSearcher(registry: SkillRegistryController): SkillSea
    */
   return function search(queryString: string | string[]): SkillSearchResult {
     const resolved = resolveQuery(queryString);
-    const feedback = resolved.feedback;
-    const query = resolved.query;
 
     const results = resolved.matches.filter((skill) =>
       shouldIncludeSkill(skill, resolved.query.exclude)
@@ -169,7 +221,7 @@ export function createSkillSearcher(registry: SkillRegistryController): SkillSea
     const totalMatches = results.length;
 
     const ranked: SkillRank[] = results
-      .map((skill) => rankSkill(skill, query.include))
+      .map((skill) => rankSkill(skill, resolved.query.include))
       .sort((a, b) => {
         if (b.totalScore !== a.totalScore) {
           return b.totalScore - a.totalScore;
@@ -185,8 +237,8 @@ export function createSkillSearcher(registry: SkillRegistryController): SkillSea
     return {
       matches,
       totalMatches,
-      feedback,
-      query,
+      feedback: resolved.feedback,
+      query: resolved.query,
       totalSkills: registry.skills.length,
     };
   };

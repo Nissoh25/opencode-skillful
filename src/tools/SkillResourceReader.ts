@@ -1,47 +1,66 @@
-import { type PluginInput, type ToolDefinition, tool, type ToolContext } from '@opencode-ai/plugin';
-import { createInstructionInjector } from '../services/OpenCodeChat';
-import { createSkillResourceResolver } from '../services/SkillResourceResolver';
-import { SkillProvider } from '../types';
-
 /**
- *  Tool to read a resource file from a skill's directory
+ * SkillResourceReader Tool - Safe Skill Resource Access
+ *
+ * WHY: Skills contain resources (scripts, assets, references) that need to be
+ * retrieved safely. This tool:
+ * 1. Validates the resource type (scripts|assets|references)
+ * 2. Resolves the path safely (prevents path traversal attacks)
+ * 3. Reads the file content and returns it for injection
+ *
+ * CRITICAL SECURITY: Resources are pre-indexed at parse time. This tool can only
+ * retrieve resources that were explicitly registered in the skill's resource maps.
+ * It cannot request arbitrary paths like "../../etc/passwd".
+ *
+ * PATH PARSING: Input path format is "type/relative/path"
+ * - type: one of 'scripts', 'assets', 'references' (validated)
+ * - relative/path: path within that type's directory
+ *
+ * EXAMPLE:
+ * - Args: { skill_name: 'git-commit', relative_path: 'scripts/commit.sh' }
+ * - Type: 'scripts', path: 'commit.sh'
+ * - Resolves: skill.scripts.get('commit.sh') → reads file content
+ *
+ * RETURN VALUE: Object with:
+ * - injection: contains skill_name, resource_path, MIME type, and content
+ * The caller (index.ts) injects this content into the message body
+ *
+ * READY STATE: Must wait for registry initialization before accessing skills
+ *
+ * @param provider SkillRegistry instance (must be initialized first)
+ * @returns Async function callable by OpenCode as skill_resource tool
  */
 
-export function createToolResourceReader(
-  ctx: PluginInput,
-  provider: SkillProvider
-): ToolDefinition {
-  const sendPrompt = createInstructionInjector(ctx);
+import path from 'node:path';
+import { createSkillResourceResolver } from '../services/SkillResourceResolver';
+import { assertIsValidResourceType, SkillRegistry } from '../types';
+
+export function createSkillResourceReader(provider: SkillRegistry) {
   const skillResourceResolver = createSkillResourceResolver(provider);
 
-  return tool({
-    description: `Read a resource file from a skill.`,
-    args: {
-      skill_name: tool.schema.string().describe('The skill id to read the resource from.'),
-      relative_path: tool.schema
-        .string()
-        .describe('The relative path to the resource file within the skill directory.'),
-    },
-    execute: async (args, toolCtx: ToolContext) => {
-      const resource = await skillResourceResolver({
-        skill_name: args.skill_name,
-        type: 'reference',
-        relative_path: args.relative_path,
-      });
+  return async (args: { skill_name: string; relative_path: string }) => {
+    await provider.controller.ready.whenReady();
 
-      // Inject content silently
-      await sendPrompt(
-        `<Resource skill="${args.skill_name}" path="${args.relative_path}" type="${resource.mimeType}">${resource.content}</Resource>`,
-        { sessionId: toolCtx.sessionID }
-      );
+    const [type, ...restPath] = args.relative_path.split('/');
 
-      return `
-Load Skill Resource
+    assertIsValidResourceType(type);
 
-  skill: ${args.skill_name}
-  resource: ${args.relative_path}
-  type: ${resource.mimeType}
-    `;
-    },
-  });
+    const resource = await skillResourceResolver({
+      skill_name: args.skill_name,
+      type,
+      relative_path: path.join(...restPath),
+    });
+
+    // Inject content silently
+
+    const injection = {
+      skill_name: args.skill_name,
+      resource_path: args.relative_path,
+      resource_mimetype: resource.mimeType,
+      content: resource.content,
+    };
+
+    return {
+      injection,
+    };
+  };
 }

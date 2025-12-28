@@ -2,6 +2,8 @@
  * Type definitions for OpenCode Skills Plugin
  */
 
+import { ReadyStateMachine } from './lib/ReadyStateMachine';
+
 /**
  * Skill resource map type for indexing skill resources
  *
@@ -97,11 +99,6 @@ export type LogType = 'log' | 'debug' | 'error' | 'warn';
 export type PluginLogger = Record<LogType, (...message: unknown[]) => void>;
 
 /**
- * Skill registry map type
- */
-export type SkillRegistry = Map<string, Skill>;
-
-/**
  * Skill searcher function type
  */
 export type SkillSearcher = (_query: string | string[]) => SkillSearchResult;
@@ -110,11 +107,14 @@ export type SkillSearcher = (_query: string | string[]) => SkillSearchResult;
  * Skill registry controller interface
  */
 export type SkillRegistryController = {
+  ready: ReadyStateMachine;
   skills: Skill[];
   ids: string[];
+  clear: () => void;
+  delete: (_key: string) => void;
   has: (_key: string) => boolean;
   get: (_key: string) => Skill | undefined;
-  add: (_key: string, _skill: Skill) => void;
+  set: (_key: string, _skill: Skill) => void;
 };
 
 export type SkillRegistryDebugInfo = {
@@ -122,12 +122,28 @@ export type SkillRegistryDebugInfo = {
   parsed: number;
   rejected: number;
   errors: string[];
-  duplicates: number;
 };
 
-export type SkillProvider = {
-  registry: SkillRegistryController;
-  searcher: SkillSearcher;
+export type SkillRegistry = {
+  initialise: () => Promise<void>;
+  config: PluginConfig;
+  register: (...skillPaths: string[]) => Promise<SkillRegistryDebugInfo>;
+  controller: SkillRegistryController;
+  isSkillPath: (_path: string) => boolean;
+  getToolnameFromSkillPath: (_path: string) => string | null;
+  search: SkillSearcher;
   debug?: SkillRegistryDebugInfo;
   logger: PluginLogger;
+};
+
+const ResourceTypes = ['script', 'asset', 'reference'] as const;
+type ResourceType = (typeof ResourceTypes)[number];
+
+/**
+ * Asserts that the provided type is a valid ResourceType
+ */
+export const assertIsValidResourceType: (type: string) => asserts type is ResourceType = (type) => {
+  if (!ResourceTypes.includes(type as ResourceType)) {
+    throw new Error(`Invalid resource type: ${type}`);
+  }
 };

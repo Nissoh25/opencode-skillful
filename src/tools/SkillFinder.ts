@@ -1,64 +1,56 @@
-import { type PluginInput, type ToolDefinition, tool } from '@opencode-ai/plugin';
-import type { SkillProvider } from '../types';
+/**
+ * SkillFinder Tool - Natural Language Skill Discovery
+ *
+ * WHY: This tool wraps SkillSearcher with ready-state synchronization.
+ * Users call skill_find("git commits") to search for relevant skills.
+ * The tool must block until the registry is fully initialized before searching.
+ *
+ * CRITICAL PATTERN: `await provider.controller.ready.whenReady()`
+ * This line ensures that skill discovery has completed before we attempt to
+ * search. Without this, early calls would search an empty registry.
+ *
+ * RETURN VALUE: Object with:
+ * - query: original query for user reference
+ * - skills: matched skills with toolName and description
+ * - summary: metadata (total skills, matches found, feedback message)
+ * - debug: registry debug info (only if enabled in config)
+ *
+ * TOOL REGISTRATION: This factory is called in api.ts like:
+ *   findSkills: createSkillFinder(registry)
+ * Which returns an async function that OpenCode registers as a tool.
+ *
+ * FEEDBACK: The feedback message explains the query interpretation to the user:
+ *   "Searching for: **git commit** | Found 3 matches"
+ *
+ * @param provider SkillRegistry instance (must be initialized first)
+ * @returns Async function callable by OpenCode as skill_find tool
+ */
+
+import type { SkillRegistry } from '../types';
 
 /**
- * Tool to search for skills using natural language query syntax
- *
- * The SkillSearcher handles query parsing with support for:
- * - Natural syntax (Gmail-style): "api design"
- * - Negation: "testing -performance"
- * - Quoted phrases: "git commits"
- * - Multiple terms (AND logic): "typescript react testing"
- *
- * Additionally supports path prefix matching:
- * - "experts" → all skills under skills/experts/*
- * - "experts/data-ai" → all skills under that subtree
- * - "*" or empty → list all skills
+ * Creates a tool function that searches for skills
  */
-export function createFindSkillsTool(_ctx: PluginInput, provider: SkillProvider): ToolDefinition {
-  return tool({
-    description: `Search for skills using natural query syntax`,
-    args: {
-      query: tool.schema
-        .union([tool.schema.string(), tool.schema.array(tool.schema.string())])
-        .describe(
-          `The search query. Supports natural syntax, negation (-term), quoted phrases ("exact match"), and path prefixes (e.g., "experts/"). Use "*" or leave empty to list all skills.`
-        ),
-    },
-    execute: async (args) => {
-      const result = provider.searcher(args.query);
+export function createSkillFinder(provider: SkillRegistry) {
+  return async (args: { query: string | string[] }) => {
+    await provider.controller.ready.whenReady();
 
-      const results = result.matches
-        .map(
-          (skill) =>
-            `<Skill skill_name="${skill.toolName}" skill_shortname="${skill.name}">${skill.description}</Skill>`
-        )
-        .join('\n');
+    const result = provider.search(args.query);
 
-      const debugInfo = provider.debug
-        ? `
-  <Debug>
-    <Discovered>${provider.debug.discovered}</Discovered>
-    <Parsed>${provider.debug.parsed}</Parsed>
-    <Rejected>${provider.debug.rejected}</Rejected>
-    <Duplicates>${provider.debug.duplicates}</Duplicates>
-    <Errors>
-      ${provider.debug.errors.map((e) => `<Error>${e}</Error>`).join('\n')}
-    </Errors>
-  </Debug>`
-        : '';
+    const skills = result.matches.map((skill) => ({
+      name: skill.toolName,
+      description: skill.description,
+    }));
 
-      return `<SkillSearchResults query="${args.query}">
-  <Skills>
-    ${results}
-  </Skills>
-  <Summary>
-    <Total>${provider.registry.skills.length}</Total>
-    <Matches>${result.totalMatches}</Matches>
-    <Feedback>${result.feedback}</Feedback>
-    ${debugInfo}
-  </Summary>
-</SkillSearchResults>`;
-    },
-  });
+    return {
+      query: args.query,
+      skills,
+      summary: {
+        total: provider.controller.skills.length,
+        matches: result.totalMatches,
+        feedback: result.feedback,
+      },
+      debug: provider.debug,
+    };
+  };
 }
