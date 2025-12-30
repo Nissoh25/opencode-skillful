@@ -5,8 +5,50 @@ An interpretation of the [Anthropic Agent Skills Specification](https://github.c
 Differentiators include:
 
 - Conversationally the agent uses `skill_find words, words words` to discover skills
-- The agent uses `skill_use fully_resolved_skill_name` and,
+- The agent uses `skill_use "skill_name"` and,
 - The agent can use `skill_resource skill_relative/resource/path` to read reference material
+
+## Table of Contents
+
+- [Quick Start](#quick-start) - Get started in 2 minutes
+- [Installation](#installation) - Set up the plugin
+- [Three Core Tools](#three-core-tools) - Overview of skill_find, skill_use, skill_resource
+- [Running Skill Scripts](#running-skill-scripts) - How agents execute skill scripts
+- [Usage Examples](#usage-examples) - Real-world scenarios
+- [Plugin Tools](#plugin-tools) - Detailed tool documentation
+- [Configuration](#configuration) - Advanced setup
+- [Architecture](#architecture) - How it works internally
+- [Creating Skills](#creating-skills) - Build your own skills
+
+## Quick Start
+
+Get up and running with three common tasks:
+
+### 1. Find Skills by Keyword
+
+```
+skill_find "git commit"
+```
+
+Searches for skills related to writing git commits. Returns matching skills sorted by relevance.
+
+### 2. Load a Skill into Your Chat
+
+```
+skill_use "experts_writing_git_commits"
+```
+
+Loads the skill into your chat context. The AI agent can now reference it when giving advice.
+
+### 3. Read a Skill's Reference Document
+
+```
+skill_resource skill_name="experts_writing_git_commits" relative_path="references/guide.md"
+```
+
+Access specific documentation or templates from a skill without loading the entire skill.
+
+**Next steps:** See [Usage Examples](#usage-examples) for real-world scenarios, or jump to [Plugin Tools](#plugin-tools) for detailed documentation.
 
 ## Installation
 
@@ -18,53 +60,123 @@ Create or edit your OpenCode configuration file (typically `~/.config/opencode/c
 }
 ```
 
-## Usage
+## Running Skill Scripts
 
-### Example 1: Finding and Loading Skills
+Skills can include executable scripts in their `scripts/` directory. When a skill is loaded with `skill_use`, the agent receives the full inventory of available scripts and can be instructed to run them.
 
-```
-I need to write a commit message. Can you find any relevant skills and load them?
+**How it works:**
 
-1. Use skill_find to search for "commit" or "git" related skills
-2. Load the most relevant skill using skill_use
-3. Apply the loaded skill guidance to write my commit message
-```
+1. Skills reference scripts in their SKILL.md like: `./scripts/setup.sh`
+2. When you load a skill with `skill_use`, the agent sees all available scripts in the resource inventory
+3. You instruct the agent: "Run the setup script from this skill"
+4. The agent determines the script path and executes it
 
-**Demonstrates:**
+**Example:**
 
-- Searching for skills by keyword
-- Loading skills into the chat context
-- Applying skill guidance to tasks
+Your skill's SKILL.md includes: `./scripts/generate-changelog.sh`
 
-### Example 2: Browsing Available Skills
+You ask: "Can you run the changelog generator from the build-utils skill?"
 
-```
-What skills are available? Show me everything under the "experts" category.
+The agent:
 
-1. List all skills with skill_find "*"
-2. Filter to a specific path with skill_find "experts"
-3. Load a specific expert skill for deep guidance
-```
+- Loads the skill with `skill_use`
+- Sees the script in the resource inventory
+- Determines the path: `scripts/generate-changelog.sh`
+- Runs the script with appropriate context
 
-**Demonstrates:**
+**Why this approach?**
 
-- Listing all available skills
-- Path prefix filtering (e.g., "experts", "superpowers/writing")
-- Hierarchical skill organization
+Rather than a dedicated script execution tool, agents have full visibility into all skill resources and can intelligently decide when and how to run them based on your instructions and the task context. Scripts are referenced naturally in skill documentation (e.g., "Run `./scripts/setup.sh` to initialize") and agents can work out the paths and execution from context.
 
-### Example 3: Advanced Search with Exclusions
+## Three Core Tools
 
-```
-Find testing-related skills but exclude anything about performance testing.
+The plugin provides three simple but powerful tools:
 
-skill_find "testing -performance"
-```
+| Tool               | Purpose                         | When to Use                                        |
+| ------------------ | ------------------------------- | -------------------------------------------------- |
+| **skill_find**     | Discover skills by keyword      | You want to search for relevant skills             |
+| **skill_use**      | Load skills into chat           | You want the AI to reference a skill               |
+| **skill_resource** | Read specific files from skills | You need a template, guide, or script from a skill |
 
-**Demonstrates:**
+See [Plugin Tools](#plugin-tools) for complete documentation.
 
-- Natural language query syntax
-- Negation with `-term`
-- AND logic for multiple terms
+## Usage Examples
+
+These real-world scenarios show how to use the three tools together:
+
+### Scenario 1: Writing Better Git Commits
+
+**You want:** The AI to help you write a commit message following best practices.
+
+**Steps:**
+
+1. Search for relevant skills:
+
+   ```
+   skill_find "git commit"
+   ```
+
+2. Load the skill into your chat:
+
+   ```
+   skill_use "experts_writing_git_commits"
+   ```
+
+3. Ask the AI: "Help me write a commit message for refactoring the auth module"
+
+The AI now has the skill's guidance and can apply best practices to your request.
+
+### Scenario 2: Finding and Exploring a Specific Skill's Resources
+
+**You want:** Access a specific template or guide from a skill without loading the entire skill.
+
+**Steps:**
+
+1. Find skills in a category:
+
+   ```
+   skill_find "testing"
+   ```
+
+2. Once you've identified a skill, read its resources:
+   ```
+   skill_resource skill_name="testing-skill" relative_path="references/test-template.md"
+   ```
+
+This is useful when you just need a template or specific document, not full AI guidance.
+
+### Scenario 3: Browsing and Discovering Skills
+
+**You want:** See what skills are available under a specific category.
+
+**Steps:**
+
+1. List all skills:
+
+   ```
+   skill_find "*"
+   ```
+
+2. Filter by category:
+
+   ```
+   skill_find "experts"
+   ```
+
+3. Search with exclusions:
+   ```
+   skill_find "testing -performance"
+   ```
+
+This searches for testing-related skills but excludes performance testing.
+
+### Query Syntax Quick Reference
+
+- `*` or empty: List all skills
+- `keyword1 keyword2`: AND logic (all terms must match)
+- `-term`: Exclude results matching this term
+- `"exact phrase"`: Match exact phrase
+- `experts`, `superpowers/writing`: Path prefix matching
 
 ## Features
 
@@ -214,10 +326,10 @@ When loading skills, use the full identifier:
 
 ```
 # Load a skill by its identifier
-skill_use skill_names=["experts_ai_agentic_engineer"]
+skill_use "experts_ai_agentic_engineer"
 
 # Load multiple skills
-skill_use skill_names=["experts_ai_agentic_engineer", "superpowers_writing_code_review"]
+skill_use "experts_ai_agentic_engineer", "superpowers_writing_code_review"
 ```
 
 ### Reading Skill Resources
@@ -243,23 +355,9 @@ But when writing your skills, there's nothing stopping you from using `skill_res
 
 (Just be aware that exotic file types might need special tooling to handle them properly.)
 
-### Executing Skill Scripts
-
-```
-
-# Execute a script without arguments
-
-skill_exec skill_name="build-utils" relative_path="scripts/generate-changelog.sh"
-
-# Execute a script with arguments
-
-skill_exec skill_name="code-generator" relative_path="scripts/gen.py" args=["--format", "json", "--output", "schema.json"]
-
-```
-
 ## Plugin Tools
 
-The plugin provides four core tools implemented in `src/tools/`:
+The plugin provides three core tools implemented in `src/tools/`:
 
 ### `skill_find` (SkillFinder.ts)
 
@@ -300,6 +398,12 @@ Search for skills using natural query syntax with intelligent ranking by relevan
 </SkillSearchResults>
 ```
 
+Then load it with:
+
+```
+skill_use "experts_writing_git_commits"
+```
+
 ### `skill_use` (SkillUser.ts)
 
 Load one or more skills into the chat context with full resource metadata.
@@ -335,13 +439,21 @@ Read a specific resource file from a skill's directory and inject silently into 
 
 - Load specific reference documents or templates from a skill
 - Access supporting files without loading the entire skill
-- Retrieve examples, guides, or configuration templates
+- Retrieve examples, guides, configuration templates, or scripts
 - Most commonly used after loading a skill with `skill_use` to access its resources
 
 **Parameters:**
 
 - `skill_name`: The skill containing the resource (by toolName/FQDN or short name)
 - `relative_path`: Path to the resource relative to the skill directory
+
+**Resource Types:**
+
+Can read any of the three resource types:
+
+- `references/` - Documentation, guides, and reference materials
+- `assets/` - Templates, images, binary files, and configuration files
+- `scripts/` - Executable scripts (shell, Python, etc.) for viewing or analysis
 
 **Returns:**
 
@@ -354,48 +466,36 @@ Read a specific resource file from a skill's directory and inject silently into 
 - Resolves relative paths within skill directory (e.g., `references/guide.md`, `assets/template.html`, `scripts/setup.sh`)
 - Supports any text or binary file type
 
-**Example Response:**
+**Example Responses:**
+
+Reference document:
 
 ```
 Load Skill Resource
 
   skill: experts/writing-git-commits
-  resource: templates/commit-template.md
+  resource: references/commit-guide.md
   type: text/markdown
 ```
 
-### `skill_exec` (SkillScriptExec.ts)
-
-Execute scripts from skill resources with optional arguments.
-
-**Parameters:**
-
-- `skill_name`: The skill containing the script (by toolName/FQDN or short name)
-- `relative_path`: Path to the script file relative to the skill directory
-- `args`: Optional array of string arguments to pass to the script
-
-**Returns:**
-
-- Exit code of the script execution
-- Standard output (stdout)
-- Standard error (stderr)
-- Formatted text representation
-
-**Behavior:**
-
-- Locates and executes scripts within skill directories
-- Passes arguments to the script
-- Silently injects execution results
-- Includes proper error handling and reporting
-
-**Example Response:**
+Script file:
 
 ```
-Executed script from skill "build-utils": scripts/generate-changelog.sh
+Load Skill Resource
 
-Exit Code: 0
-STDOUT: Changelog generated successfully
-STDERR: (none)
+  skill: build-utils
+  resource: scripts/generate-changelog.sh
+  type: text/plain
+```
+
+Asset file:
+
+```
+Load Skill Resource
+
+  skill: brand-guidelines
+  resource: assets/logo-usage.html
+  type: text/html
 ```
 
 ## Error Handling
@@ -434,20 +534,6 @@ Resource loading failures occur when:
 - The file cannot be read due to permissions
 
 The tool returns an error message indicating which skill or resource path was problematic.
-
-### skill_exec Errors
-
-Script execution includes exit codes and error output:
-
-```
-Executed script from skill "build-utils": scripts/generate-changelog.sh
-
-Exit Code: 1
-STDOUT: (partial output)
-STDERR: Permission denied: scripts/generate-changelog.sh
-```
-
-Non-zero exit codes indicate script failures. Always check STDERR and the exit code when troubleshooting.
 
 ## Configuration
 
@@ -599,6 +685,7 @@ The plugin uses a **layered, modular architecture** with clear separation of con
 │ Plugin Entry Point (index.ts)                        │
 │ - Defines 3 core tools: skill_find, skill_use,      │
 │   skill_resource                                     │
+│ - NOT including skill_exec (removed)                │
 │ - Initializes API factory and config                │
 │ - Manages message injection (XML serialization)      │
 └──────────────────────────────────────────────────────┘
@@ -946,8 +1033,8 @@ Skill resources are automatically discovered and categorized:
   - Useful for providing templates and examples to the AI
 - **Scripts** (`scripts/` directory): Executable scripts that perform actions
   - Shell scripts (.sh), Python scripts (.py), or other executables
-  - Executed via `skill_exec` with optional arguments
-  - Useful for automation, code generation, or complex operations
+  - Can be accessed via `skill_resource` for reading as files
+  - Useful for providing automation scripts, code generation, or templates
 
 ## Considerations
 
