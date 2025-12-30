@@ -19,7 +19,6 @@ This plugin differs from the built-in OpenCode skills implementation in importan
 | **Format Configuration** | Single format for all models       | Per-model format selection (JSON, XML, Markdown) |
 | **Skill Discovery**      | Limited discovery mechanism        | Natural language search with ranking             |
 | **Resource Access**      | Direct file system access          | Pre-indexed, secure path-based access            |
-| **Extensibility**        | Fixed tool set                     | Pluggable prompt renderers                       |
 
 ### On-Demand Skill Injection
 
