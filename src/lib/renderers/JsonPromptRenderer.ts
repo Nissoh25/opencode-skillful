@@ -5,7 +5,7 @@
  * and prefer structured JSON data over XML for reliability and clarity.
  */
 
-import type { PromptRenderer } from '../PromptRenderer';
+import type { PromptRenderer } from '../../types';
 
 export const createJsonPromptRenderer = (): PromptRenderer => {
   const format = 'json' as const;

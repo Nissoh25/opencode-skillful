@@ -109,4 +109,23 @@ describe('XmlPromptRenderer', () => {
     expect(result).toContain('<level3>');
     expect(result).toContain('<value>deep</value>');
   });
+
+  it('should serialize Map objects to XML', () => {
+    const resourceMap = new Map();
+    resourceMap.set('api.md', { absolutePath: '/skills/api.md', mimeType: 'text/markdown' });
+    resourceMap.set('guide.md', { absolutePath: '/skills/guide.md', mimeType: 'text/markdown' });
+
+    const data = {
+      name: 'test-skill',
+      references: resourceMap,
+    };
+    const result = renderer.render(data);
+
+    expect(result).toContain('<references>');
+    expect(result).toContain('</references>');
+    expect(result).toContain('<api.md>');
+    expect(result).toContain('<guide.md>');
+    expect(result).toContain('absolutePath');
+    expect(result).toContain('mimeType');
+  });
 });

@@ -15,7 +15,7 @@
  * - Skill content → appended after --- separator with ### Content heading
  */
 
-import type { PromptRenderer } from '../PromptRenderer';
+import type { PromptRenderer } from '../../types';
 
 export const createMdPromptRenderer = (): PromptRenderer => {
   const format = 'md' as const;

@@ -39,8 +39,17 @@ function escapeXml(str: string): string {
     .replace(/'/g, '&apos;');
 }
 
+function mapToObject(map: Map<unknown, unknown>): object {
+  return Object.fromEntries(map.entries());
+}
+
 export function jsonToXml(json: object, rootElement: string = 'root'): string {
   let xml = `<${rootElement}>`;
+
+  // Handle Map objects by converting to a serializable object
+  if (json instanceof Map) {
+    return jsonToXml(mapToObject(json), rootElement);
+  }
 
   for (const key in json) {
     if (!Object.hasOwn(json, key)) {
@@ -56,6 +65,8 @@ export function jsonToXml(json: object, rootElement: string = 'root'): string {
       for (const item of value) {
         xml += jsonToXml(item, key);
       }
+    } else if (value instanceof Map) {
+      xml += jsonToXml(mapToObject(value), key);
     } else if (typeof value === 'object' && value !== null) {
       xml += jsonToXml(value, key);
     } else if (value !== undefined && value !== null) {

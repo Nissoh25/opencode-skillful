@@ -6,7 +6,7 @@
  * current behavior as the default and recommended format for Claude models.
  */
 
-import type { PromptRenderer } from '../PromptRenderer';
+import type { PromptRenderer } from '../../types';
 import { jsonToXml } from '../xml';
 
 export const createXmlPromptRenderer = (): PromptRenderer => {
