@@ -1,6 +1,7 @@
 import type { Skill, SkillRegistry } from '../types';
 
 import { readSkillFile } from '../lib/SkillFs';
+import path from 'node:path';
 
 /**
  * Skill resources are mapped on startup as a dictionary of relative paths to resource metadata.
@@ -46,7 +47,7 @@ export function createSkillResourceResolver(provider: SkillRegistry) {
       );
     }
 
-    const resourceEntry = resourceMap.get(args.relative_path);
+    const resourceEntry = resourceMap.get(path.join(args.type, args.relative_path));
 
     if (!resourceEntry) {
       throw new Error(

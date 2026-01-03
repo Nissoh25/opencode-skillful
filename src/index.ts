@@ -152,7 +152,9 @@ export const SkillsPlugin: Plugin = async (ctx) => {
 
           const renderer = promptRenderer.getFormatter(format);
 
+          // Read the resource from the skill
           const result = await api.readResource(args);
+
           if (!result.injection) {
             throw new Error('Failed to read resource');
           }
